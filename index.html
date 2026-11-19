@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Diario dei Petali</title>
+<meta name="description" content="Diario emotivo sul fiore di Plutchik. I dati restano sul tuo dispositivo.">
+<meta name="theme-color" content="#F4F2F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141119" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Petali">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400..700&display=swap">
+<style>
+/* Layout: a lab notebook for feelings. Left the interactive Plutchik flower + composer, right the day's bouquet, timeline and week strip. */
+:root{
+  --bg:#F4F2F8; --surface:#FFFFFF; --sunk:#ECE8F3; --ink:#1C1824; --muted:#6B6479; --line:#E1DCEA;
+  --btn:#1C1824; --btn-ink:#FFFFFF; --danger:#C62F3A;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --r:22px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141119; --surface:#1E1A25; --sunk:#26212F; --ink:#F2EFF7; --muted:#A49DB2; --line:#2F2A39;
+  --btn:#F2EFF7; --btn-ink:#141119; --danger:#FF6B74; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141119; --surface:#1E1A25; --sunk:#26212F; --ink:#F2EFF7; --muted:#A49DB2; --line:#2F2A39;
+  --btn:#F2EFF7; --btn-ink:#141119; --danger:#FF6B74; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(20px + env(safe-area-inset-top,0px));padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+/* data & install card */
+.data-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.btn2{border:1.5px solid var(--ink);background:transparent;border-radius:999px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer}
+.btn2:hover{background:var(--ink);color:var(--surface)}
+.card p.small{margin:6px 0 0;color:var(--muted);font-size:14px;max-width:62ch}
+.steps{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:14px}
+.steps li{margin:2px 0}
+.steps b{color:var(--ink)}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2.5px solid var(--ink);outline-offset:2px;border-radius:6px}
+
+/* header */
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{width:44px;height:44px;flex:none}
+.brand h1{font-size:clamp(26px,4vw,34px);font-weight:800;line-height:1}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;color:var(--muted)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill[data-s="cloud"] i{background:#3BB273}.pill[data-s="local"] i{background:#3BB273}.pill[data-s="err"] i{background:var(--danger)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px;min-width:0}
+.card h2{font-size:21px;font-weight:700}
+.kicker{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+
+/* flower */
+.flower-wrap{position:relative;max-width:540px;margin:4px auto 0}
+#flower{width:100%;height:auto;display:block;overflow:visible}
+.band{cursor:pointer;stroke:var(--surface);stroke-width:2;transition:transform .25s cubic-bezier(.3,1.6,.5,1),filter .2s;transform-box:view-box;transform-origin:0 0}
+.band:hover{filter:brightness(1.07) saturate(1.1)}
+.band:focus{outline:none}
+.band:focus-visible{stroke:var(--ink);stroke-width:2.5}
+.band.sel{stroke:var(--ink);stroke-width:3;transform:scale(1.045)}
+.flower-wrap.has-sel .band:not(.sel){opacity:.55}
+.flower-wrap.has-sel .band:not(.sel):hover{opacity:.85}
+.lbl{font-family:var(--display);font-weight:700;font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.dyad{font-family:var(--body);font-style:italic;font-size:10.5px;fill:var(--muted);text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.core{fill:var(--surface);stroke:var(--line)}
+.core-t{font-family:var(--display);font-weight:800;font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+
+.readout{min-height:52px;text-align:center;margin-top:6px}
+.readout b{font-family:var(--display);font-size:22px;font-weight:700;display:block;line-height:1.2}
+.readout span{color:var(--muted);font-size:14px}
+.legend{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:4px}
+.legend em{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.legend em i{display:inline-block;width:22px;height:8px;border-radius:4px;background:linear-gradient(90deg,#B72C2F,#E5383B,#F29C9D)}
+
+/* composer */
+.composer{display:flex;flex-direction:column;gap:14px;margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)}
+.picked{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:36px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px 6px 8px;border-radius:999px;font-size:14px;font-weight:600;border:1.5px solid transparent;background:var(--sunk)}
+.chip .dot{width:14px;height:14px;border-radius:50%}
+.chip button{border:0;background:none;padding:0 0 0 2px;cursor:pointer;color:var(--muted);font-size:16px;line-height:1}
+.chip.dy{background:transparent;border:1.5px dashed var(--muted);color:var(--ink);font-style:italic;font-weight:500;padding-left:12px}
+.hint{color:var(--muted);font-size:14px}
+.ctx{display:flex;flex-wrap:wrap;gap:8px}
+.ctx button{border:1.5px solid var(--line);background:transparent;border-radius:999px;padding:5px 12px;font-size:13.5px;cursor:pointer;transition:all .15s}
+.ctx button:hover{border-color:var(--muted)}
+.ctx button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
+textarea{flex:1 1 260px;min-height:76px;resize:vertical;border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--bg)}
+textarea:focus,input[type=time]:focus{outline:none;border-color:var(--ink)}
+.timebox{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+input[type=time]{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--bg);font-variant-numeric:tabular-nums;font-size:15px}
+.save{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.btn{border:0;border-radius:999px;padding:12px 22px;background:var(--btn);color:var(--btn-ink);font-family:var(--display);font-weight:700;font-size:16px;cursor:pointer;transition:transform .15s,opacity .15s}
+.btn:hover:not(:disabled){transform:translateY(-1px) rotate(-1deg)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.ghost{border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;text-decoration:underline;text-underline-offset:3px}
+
+/* bouquet */
+.bouquet{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:center}
+@media (max-width:420px){.bouquet{grid-template-columns:minmax(0,1fr)}.bouquet svg{margin:0 auto}}
+.bouquet svg{width:150px;height:150px}
+.bq-text p{margin:4px 0 0;color:var(--muted)}
+.bq-text .big{font-family:var(--display);font-size:24px;font-weight:700;color:var(--ink);line-height:1.2;margin:0}
+.mix{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:12px;background:var(--sunk)}
+.mix span{height:100%}
+
+/* timeline */
+.tl{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:52px 18px minmax(0,1fr) auto;gap:10px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
+.tl li:first-child{border-top:0}
+.tl time{font-variant-numeric:tabular-nums;font-weight:600;color:var(--muted);font-size:14px;padding-top:1px}
+.tl .dots{display:flex;flex-direction:column;gap:3px;padding-top:4px}
+.tl .dots i{width:14px;height:14px;border-radius:50%;display:block}
+.tl .what{font-weight:600}
+.tl .what small{font-weight:400;font-style:italic;color:var(--muted)}
+.tl .note{margin:3px 0 0;color:var(--ink);opacity:.85;font-size:14.5px;overflow-wrap:anywhere}
+.tl .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tl .tags span{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.del{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:6px}
+.del:hover{color:var(--danger)}
+.del.arm{color:var(--surface);background:var(--danger);padding:2px 8px}
+.empty{padding:22px 0 6px;color:var(--muted);text-align:center}
+.empty b{display:block;font-family:var(--display);color:var(--ink);font-size:18px;margin-bottom:2px}
+
+/* week */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px}
+.day{border:1.5px solid transparent;background:none;padding:6px 2px 8px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.day:hover{background:var(--sunk)}
+.day[aria-pressed="true"]{border-color:var(--ink)}
+.day .stack{width:100%;max-width:38px;height:96px;border-radius:10px;overflow:hidden;display:flex;flex-direction:column-reverse;background:var(--sunk)}
+.day .stack span{flex:1 1 0;min-height:0}
+.day small{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.day b{font-family:var(--display);font-size:15px;line-height:1;font-variant-numeric:tabular-nums}
+.top3{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--btn);color:var(--btn-ink);padding:10px 18px;border-radius:999px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;z-index:20;max-width:calc(100% - 32px);text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.confetti{position:fixed;width:12px;height:18px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;pointer-events:none;z-index:30}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="-50 -50 100 100" aria-hidden="true" id="logo"></svg>
+      <div>
+        <h1>Diario dei Petali</h1>
+        <p id="today-label">Come stai, davvero?</p>
+      </div>
+    </div>
+    <span class="pill" id="status" data-s="local"><i></i><span>Solo su questo dispositivo</span></span>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="pick-h">
+      <div class="head">
+        <h2 id="pick-h">Cosa senti adesso?</h2>
+        <span class="kicker">Fiore di Plutchik</span>
+      </div>
+      <div class="flower-wrap" id="fw">
+        <svg id="flower" viewBox="-268 -244 536 488" role="group" aria-label="Fiore delle emozioni: scegli un petalo e un'intensità"></svg>
+      </div>
+      <div class="readout" id="readout" aria-live="polite"><b>Tocca un petalo</b><span>Puoi scegliere fino a tre emozioni insieme</span></div>
+      <div class="legend"><em><i></i>centro più intenso, bordo più lieve</em><em>in corsivo: le emozioni miste</em></div>
+
+      <form class="composer" id="composer">
+        <div class="picked" id="picked"><span class="hint">Nessuna emozione scelta.</span></div>
+        <div>
+          <div class="kicker" style="margin-bottom:8px">Dove ti trovi con la testa</div>
+          <div class="ctx" id="ctx"></div>
+        </div>
+        <div class="row">
+          <label class="timebox" for="when">Ora<input type="time" id="when"></label>
+          <textarea id="note" placeholder="Cosa sta succedendo? Due righe bastano. (facoltativo)" maxlength="600" aria-label="Nota"></textarea>
+        </div>
+        <div class="save">
+          <button type="button" class="ghost" id="clear">Azzera</button>
+          <button type="submit" class="btn" id="save" disabled>Registra il momento</button>
+        </div>
+      </form>
+    </section>
+
+    <div class="col">
+      <section class="card" aria-labelledby="bq-h">
+        <div class="head"><h2 id="bq-h">Il bouquet di <span id="bq-day">oggi</span></h2></div>
+        <div class="bouquet">
+          <svg viewBox="-60 -60 120 120" id="bq" aria-hidden="true"></svg>
+          <div class="bq-text" id="bq-text"></div>
+        </div>
+        <div class="mix" id="mix" aria-hidden="true"></div>
+      </section>
+
+      <section class="card" aria-labelledby="tl-h">
+        <div class="head"><h2 id="tl-h">Momenti</h2><span class="kicker" id="tl-count"></span></div>
+        <ul class="tl" id="tl"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="wk-h">
+        <div class="head"><h2 id="wk-h">La tua settimana</h2><span class="kicker">ultimi 7 giorni</span></div>
+        <div class="week" id="week"></div>
+        <div class="top3" id="top3"></div>
+      </section>
+
+      <section class="card" aria-labelledby="data-h">
+        <div class="head"><h2 id="data-h">I tuoi dati</h2><span class="kicker">restano qui</span></div>
+        <p class="small">Tutto quello che registri resta in questo dispositivo: niente account, niente server. Computer e telefono hanno diari separati. Per spostare i dati da uno all'altro, o per tenerne una copia, usa il backup.</p>
+        <div class="data-row">
+          <button type="button" class="btn2" id="export">Scarica backup</button>
+          <button type="button" class="btn2" id="import-btn">Importa backup</button>
+          <input type="file" id="import" accept="application/json,.json" hidden>
+        </div>
+      </section>
+
+      <section class="card" id="install-card" aria-labelledby="inst-h" hidden>
+        <div class="head"><h2 id="inst-h">Mettila sulla Home</h2></div>
+        <p class="small">Installata, si apre come un'app e funziona anche senza connessione.</p>
+        <div class="data-row" id="install-row" hidden><button type="button" class="btn" id="install">Installa l'app</button></div>
+        <ul class="steps" id="install-steps">
+          <li><b>iPhone e iPad</b>: in Safari tocca Condividi, poi «Aggiungi alla schermata Home».</li>
+          <li><b>Android</b>: in Chrome apri il menu ⋮, poi «Installa app».</li>
+          <li><b>Computer</b>: in Chrome o Edge clicca l'icona di installazione nella barra degli indirizzi. In Safari su Mac: File, poi «Aggiungi al Dock».</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const EMO=[
+ {k:'gioia',n:'Gioia',c:'#F5C518',lv:['Serenità','Gioia','Estasi']},
+ {k:'fiducia',n:'Fiducia',c:'#7CC242',lv:['Accettazione','Fiducia','Ammirazione']},
+ {k:'paura',n:'Paura',c:'#16A066',lv:['Apprensione','Paura','Terrore']},
+ {k:'sorpresa',n:'Sorpresa',c:'#1BA3C6',lv:['Distrazione','Sorpresa','Stupore']},
+ {k:'tristezza',n:'Tristezza',c:'#3768D6',lv:['Malinconia','Tristezza','Dolore']},
+ {k:'disgusto',n:'Disgusto',c:'#9457DB',lv:['Noia','Disgusto','Repulsione']},
+ {k:'rabbia',n:'Rabbia',c:'#E5383B',lv:['Fastidio','Rabbia','Furia']},
+ {k:'anticipazione',n:'Anticipazione',c:'#F2812F',lv:['Interesse','Anticipazione','Vigilanza']},
+];
+const DYADS=['Amore','Sottomissione','Soggezione','Disapprovazione','Rimorso','Disprezzo','Aggressività','Ottimismo'];
+const CTX=['Lavoro','Casa','Relazioni','Famiglia','Corpo','Social','In giro','In solitudine'];
+const IDX=Object.fromEntries(EMO.map((e,i)=>[e.k,i]));
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+
+/* colour helpers */
+function hex2rgb(h){h=h.slice(1);return[0,2,4].map(i=>parseInt(h.slice(i,i+2),16))}
+function mix(h,t,a){const A=hex2rgb(h),B=hex2rgb(t);return'#'+A.map((v,i)=>Math.round(v*(1-a)+B[i]*a).toString(16).padStart(2,'0')).join('')}
+function shade(e,lvl){return lvl===1?mix(e.c,'#ffffff',.48):lvl===3?mix(e.c,'#000000',.24):e.c}
+
+/* petal geometry: teardrop along an axis, banded by radius */
+function petalPath(i,r0,r1,R0,R1,W){
+  const a=(-90+i*45)*Math.PI/180,ux=Math.cos(a),uy=Math.sin(a),px=-uy,py=ux;
+  const hw=r=>{const t=Math.min(1,Math.max(0,(r-R0)/(R1-R0)));return W*Math.pow(Math.sin(Math.PI*Math.pow(t,1.3)),.7)};
+  const N=16,L=[],Rr=[];
+  for(let k=0;k<=N;k++){const r=r0+(r1-r0)*k/N,w=hw(r);L.push([ux*r+px*w,uy*r+py*w]);Rr.push([ux*r-px*w,uy*r-py*w])}
+  const pts=L.concat(Rr.reverse());
+  return'M'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('L')+'Z';
+}
+function el(tag,attrs,parent){const n=document.createElementNS(NS,tag);for(const k in attrs)n.setAttribute(k,attrs[k]);if(parent)parent.appendChild(n);return n}
+
+/* ---------- state ---------- */
+const S={mode:'loading',days:{},db:null,uid:null,view:dayKey(new Date()),sel:[],ctx:new Set(),readOnly:false};
+function dayKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function keyToDate(k){const[y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d)}
+const fmtDay=new Intl.DateTimeFormat('it-IT',{weekday:'long',day:'numeric',month:'long'});
+const fmtShort=new Intl.DateTimeFormat('it-IT',{weekday:'short'});
+
+/* ---------- flower ---------- */
+const BANDS=[[22,80,3],[80,140,2],[140,196,1]];
+const bandEls=[];
+function buildFlower(){
+  const svg=$('flower');
+  EMO.forEach((e,i)=>{
+    BANDS.forEach(([r0,r1,lvl])=>{
+      const p=el('path',{d:petalPath(i,r0,r1,22,196,46),fill:shade(e,lvl),class:'band',tabindex:0,role:'button',
+        'aria-label':e.lv[lvl-1]+' ('+e.n.toLowerCase()+', intensità '+['lieve','media','forte'][lvl-1]+')'},svg);
+      p.dataset.e=e.k;p.dataset.l=lvl;bandEls.push(p);
+      p.addEventListener('click',()=>toggle(e.k,lvl));
+      p.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();toggle(e.k,lvl)}});
+      p.addEventListener('mouseenter',()=>hover(e,lvl));
+      p.addEventListener('focus',()=>hover(e,lvl));
+      p.addEventListener('mouseleave',()=>renderReadout());
+    });
+    const a=(-90+i*45)*Math.PI/180;
+    const t=el('text',{x:(Math.cos(a)*222).toFixed(1),y:(Math.sin(a)*218).toFixed(1),class:'lbl'},svg);t.textContent=e.n;
+    const b=a+Math.PI/8;
+    const d=el('text',{x:(Math.cos(b)*176).toFixed(1),y:(Math.sin(b)*176).toFixed(1),class:'dyad'},svg);d.textContent=DYADS[i].toLowerCase();
+  });
+  el('circle',{r:20,class:'core'},svg);
+  const ct=el('text',{class:'core-t',id:'core-t'},svg);ct.textContent='';
+  // logo
+  const lg=$('logo');EMO.forEach((e,i)=>el('path',{d:petalPath(i,4,48,4,48,12),fill:e.c},lg));
+}
+function hover(e,lvl){
+  $('readout').innerHTML='<b style="color:'+(lvl===1?'var(--ink)':'var(--ink)')+'">'+e.lv[lvl-1]+'</b><span>'+e.n+' · intensità '+['lieve','media','forte'][lvl-1]+'</span>';
+}
+function toggle(k,lvl){
+  const at=S.sel.findIndex(s=>s.e===k);
+  if(at>=0){ if(S.sel[at].i===lvl)S.sel.splice(at,1); else S.sel[at].i=lvl; }
+  else{ S.sel.push({e:k,i:lvl}); if(S.sel.length>3)S.sel.shift(); }
+  renderSel();
+}
+function dyadOf(sel){
+  if(sel.length<2)return null;
+  const idx=sel.map(s=>IDX[s.e]).sort((a,b)=>a-b);
+  if(sel.length===2){
+    const[a,b]=idx;
+    if(b-a===1)return DYADS[a];
+    if(a===0&&b===7)return DYADS[7];
+  }
+  return null;
+}
+function label(sel){return sel.map(s=>EMO[IDX[s.e]].lv[s.i-1])}
+function renderReadout(){
+  if(!S.sel.length){$('readout').innerHTML='<b>Tocca un petalo</b><span>Puoi scegliere fino a tre emozioni insieme</span>';return}
+  const d=dyadOf(S.sel);
+  $('readout').innerHTML='<b>'+label(S.sel).join(' + ')+'</b><span>'+(d?'Insieme fanno: <em>'+d.toLowerCase()+'</em>':S.sel.length===1?'Aggiungi un altro petalo se è un sentimento misto':'Un mix tutto tuo')+'</span>';
+}
+function renderSel(){
+  bandEls.forEach(p=>p.classList.toggle('sel',S.sel.some(s=>s.e===p.dataset.e&&s.i==p.dataset.l)));
+  $('fw').classList.toggle('has-sel',S.sel.length>0);
+  const box=$('picked');box.innerHTML='';
+  if(!S.sel.length){box.innerHTML='<span class="hint">Nessuna emozione scelta.</span>'}
+  S.sel.forEach(s=>{
+    const e=EMO[IDX[s.e]],c=document.createElement('span');c.className='chip';
+    c.innerHTML='<i class="dot" style="background:'+shade(e,s.i)+'"></i>'+e.lv[s.i-1]+' <button type="button" aria-label="Togli '+e.lv[s.i-1]+'">×</button>';
+    c.querySelector('button').onclick=()=>toggle(s.e,s.i);box.appendChild(c);
+  });
+  const d=dyadOf(S.sel);
+  if(d){const c=document.createElement('span');c.className='chip dy';c.textContent='= '+d.toLowerCase();box.appendChild(c)}
+  $('core-t').textContent=S.sel.length?S.sel.length:'';
+  $('save').disabled=!S.sel.length||S.readOnly;
+  renderReadout();
+}
+
+/* ---------- composer ---------- */
+function buildCtx(){
+  const box=$('ctx');
+  CTX.forEach(c=>{const b=document.createElement('button');b.type='button';b.textContent=c;b.setAttribute('aria-pressed','false');
+    b.onclick=()=>{S.ctx.has(c)?S.ctx.delete(c):S.ctx.add(c);b.setAttribute('aria-pressed',S.ctx.has(c))};box.appendChild(b)});
+}
+function nowHHMM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function resetComposer(){
+  S.sel=[];S.ctx.clear();$('note').value='';$('when').value=nowHHMM();
+  document.querySelectorAll('#ctx button').forEach(b=>b.setAttribute('aria-pressed','false'));renderSel();
+}
+$('clear').onclick=resetComposer;
+$('composer').addEventListener('submit',async ev=>{
+  ev.preventDefault();if(!S.sel.length||S.readOnly)return;
+  const [h,m]=($('when').value||nowHHMM()).split(':').map(Number);
+  const d=keyToDate(S.view);d.setHours(h,m,0,0);
+  const entry={id:Math.random().toString(36).slice(2,10)+Date.now().toString(36),t:d.getTime(),emotions:S.sel.map(s=>({e:s.e,i:s.i})),
+    dyad:dyadOf(S.sel),note:$('note').value.trim(),ctx:[...S.ctx]};
+  const list=(S.days[S.view]||[]).slice();list.push(entry);list.sort((a,b)=>a.t-b.t);
+  burst(entry.emotions);
+  await writeDay(S.view,list);
+  toast('Registrato: '+label(entry.emotions).join(' + ').toLowerCase());
+  resetComposer();
+});
+
+/* ---------- storage ---------- */
+const LS='diario-petali-v1';
+function loadLocal(){try{return JSON.parse(localStorage.getItem(LS)||'{}')}catch(e){return{}}}
+function saveLocal(){try{localStorage.setItem(LS,JSON.stringify(S.days))}catch(e){}}
+function setStatus(s,t){const p=$('status');p.dataset.s=s;p.querySelector('span').textContent=t}
+function writeDay(key,list){
+  S.days[key]=list;if(!list.length)delete S.days[key];render();
+  try{localStorage.setItem(LS,JSON.stringify(S.days))}
+  catch(e){setStatus('err','Salvataggio non riuscito');toast('Non riesco a salvare: lo spazio del browser è pieno o bloccato.')}
+  return Promise.resolve();
+}
+async function initStore(){
+  S.mode='local';S.days=loadLocal();render();
+  // ask the browser not to clear our data under storage pressure
+  try{if(navigator.storage&&navigator.storage.persist){const ok=await navigator.storage.persisted()||await navigator.storage.persist();
+    setStatus('local','Solo su questo dispositivo')}}catch(e){}
+}
+// another tab or window of the app changed the data
+window.addEventListener('storage',e=>{if(e.key===LS){S.days=loadLocal();render()}});
+
+/* ---------- backup ---------- */
+$('export').onclick=()=>{
+  const data={app:'diario-dei-petali',version:1,exported:new Date().toISOString(),days:S.days};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='diario-petali-'+dayKey(new Date())+'.json';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Backup scaricato');
+};
+$('import-btn').onclick=()=>$('import').click();
+$('import').onchange=async ev=>{
+  const f=ev.target.files[0];ev.target.value='';if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!data||data.app!=='diario-dei-petali'||typeof data.days!=='object')throw 0;
+    let added=0;
+    for(const k in data.days){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(k)||!Array.isArray(data.days[k]))continue;
+      const cur=S.days[k]||[],ids=new Set(cur.map(x=>x.id));
+      const inc=data.days[k].filter(x=>x&&x.id&&typeof x.t==='number'&&Array.isArray(x.emotions)&&x.emotions.every(m=>m.e in IDX&&[1,2,3].includes(m.i))&&!ids.has(x.id));
+      added+=inc.length;
+      if(inc.length)S.days[k]=cur.concat(inc).sort((a,b)=>a.t-b.t);
+    }
+    localStorage.setItem(LS,JSON.stringify(S.days));render();
+    toast(added?(added===1?'Importato 1 momento':'Importati '+added+' momenti'):'Nessun momento nuovo da importare');
+  }catch(e){toast('Questo file non è un backup del Diario dei Petali.')}
+};
+
+/* ---------- install ---------- */
+const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+let deferred=null;
+if(!standalone)$('install-card').hidden=false;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('install-row').hidden=false;$('install-steps').hidden=true});
+$('install').onclick=async()=>{if(!deferred)return;deferred.prompt();await deferred.userChoice;deferred=null;$('install-row').hidden=true};
+window.addEventListener('appinstalled',()=>{$('install-card').hidden=true;toast('App installata')});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+
+/* ---------- views ---------- */
+function scores(list){const sc=EMO.map(()=>0);list.forEach(en=>en.emotions.forEach(x=>sc[IDX[x.e]]+=x.i));return sc}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function renderBouquet(list){
+  const svg=$('bq');svg.innerHTML='';const sc=scores(list),max=Math.max(...sc,1);
+  EMO.forEach((e,i)=>{
+    el('path',{d:petalPath(i,5,56,5,56,14),fill:'none',stroke:'var(--line)','stroke-width':1.2,'stroke-dasharray':'2 3'},svg);
+    if(sc[i]){const R=14+42*sc[i]/max;el('path',{d:petalPath(i,5,R,5,R,Math.max(7,14*R/56)),fill:e.c,opacity:.92},svg)}
+  });
+  el('circle',{r:5,fill:'var(--ink)'},svg);
+  const txt=$('bq-text'),mixEl=$('mix');mixEl.innerHTML='';
+  const tot=sc.reduce((a,b)=>a+b,0);
+  if(!list.length){txt.innerHTML='<p class="big">Ancora tutto da colorare</p><p>Scegli un petalo e registra il primo momento: il bouquet cresce con te.</p>';return}
+  const order=sc.map((v,i)=>[v,i]).filter(x=>x[0]).sort((a,b)=>b[0]-a[0]);
+  const top=EMO[order[0][1]];
+  const share=Math.round(order[0][0]/tot*100);
+  const dy=list.filter(x=>x.dyad).map(x=>x.dyad);
+  txt.innerHTML='<p class="big">Domina la '+top.n.toLowerCase()+'</p><p>'+list.length+(list.length===1?' momento':' momenti')+' registrati · '+share+'% del colore'+(dy.length?' · è passato anche un po\' di '+[...new Set(dy)].map(d=>d.toLowerCase()).join(', '):'')+'.</p>';
+  order.forEach(([v,i])=>{const s=document.createElement('span');s.style.background=EMO[i].c;s.style.width=(v/tot*100)+'%';s.title=EMO[i].n;mixEl.appendChild(s)});
+}
+function renderTimeline(list){
+  const ul=$('tl');ul.innerHTML='';
+  $('tl-count').textContent=list.length?list.length+(list.length===1?' voce':' voci'):'';
+  if(!list.length){ul.innerHTML='<li class="empty" style="display:block"><b>Nessun momento qui</b>Quello che registri compare in questa lista, in ordine di orario.</li>';return}
+  list.slice().reverse().forEach(en=>{
+    const li=document.createElement('li'),d=new Date(en.t);
+    const hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    li.innerHTML='<time>'+hh+'</time><span class="dots">'+en.emotions.map(x=>'<i style="background:'+shade(EMO[IDX[x.e]],x.i)+'"></i>').join('')+'</span>'+
+      '<div><div class="what">'+label(en.emotions).join(' + ')+(en.dyad?' <small>· '+esc(en.dyad.toLowerCase())+'</small>':'')+'</div>'+
+      (en.note?'<p class="note">'+esc(en.note)+'</p>':'')+(en.ctx&&en.ctx.length?'<div class="tags">'+en.ctx.map(c=>'<span>'+esc(c)+'</span>').join('')+'</div>':'')+'</div>'+
+      '<button class="del" type="button" aria-label="Elimina momento delle '+hh+'">elimina</button>';
+    const b=li.querySelector('.del');
+    b.onclick=()=>{
+      if(S.readOnly)return;
+      if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='sicuro?';setTimeout(()=>{b.classList.remove('arm');b.textContent='elimina'},3000);return}
+      writeDay(S.view,(S.days[S.view]||[]).filter(x=>x.id!==en.id));
+    };
+    ul.appendChild(li);
+  });
+}
+function renderWeek(){
+  const box=$('week');box.innerHTML='';const today=new Date();const all=[];
+  for(let k=6;k>=0;k--){
+    const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-k),key=dayKey(d),list=S.days[key]||[];
+    all.push(...list);
+    const b=document.createElement('button');b.type='button';b.className='day';b.setAttribute('aria-pressed',key===S.view);
+    b.setAttribute('aria-label',fmtDay.format(d)+': '+list.length+' momenti');
+    b.innerHTML='<small>'+(k===0?'oggi':fmtShort.format(d).replace('.',''))+'</small><span class="stack">'+
+      list.map(en=>{const cs=en.emotions.map(x=>shade(EMO[IDX[x.e]],x.i));return'<span style="background:'+(cs.length>1?'linear-gradient(90deg,'+cs.join(',')+')':cs[0])+'"></span>'}).join('')+'</span><b>'+d.getDate()+'</b>';
+    b.onclick=()=>{S.view=key;render()};
+    box.appendChild(b);
+  }
+  const sc=scores(all),tot=sc.reduce((a,b)=>a+b,0),t3=$('top3');t3.innerHTML='';
+  if(!tot){t3.innerHTML='<span class="hint">Dopo qualche giorno qui vedrai le emozioni che tornano più spesso.</span>';return}
+  sc.map((v,i)=>[v,i]).filter(x=>x[0]).sort((a,b)=>b[0]-a[0]).slice(0,3).forEach(([v,i],n)=>{
+    const s=document.createElement('span');s.className='chip';s.innerHTML='<i class="dot" style="background:'+EMO[i].c+'"></i>'+(n===0?'In testa: ':'')+EMO[i].n+' · '+Math.round(v/tot*100)+'%';t3.appendChild(s);
+  });
+}
+function render(){
+  const list=S.days[S.view]||[],isToday=S.view===dayKey(new Date());
+  const d=keyToDate(S.view),long=fmtDay.format(d);
+  $('today-label').textContent=isToday?'Oggi è '+long:'Stai guardando '+long;
+  $('bq-day').textContent=isToday?'oggi':long;
+  $('save').textContent=isToday?'Registra il momento':'Registra per '+long.split(' ').slice(0,2).join(' ');
+  renderBouquet(list);renderTimeline(list);renderWeek();
+}
+
+/* ---------- delight ---------- */
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
+function burst(ems){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const r=$('save').getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const cols=ems.map(x=>shade(EMO[IDX[x.e]],x.i));
+  for(let k=0;k<18;k++){
+    const p=document.createElement('div');p.className='confetti';p.style.left=cx+'px';p.style.top=cy+'px';p.style.background=cols[k%cols.length];document.body.appendChild(p);
+    const ang=-Math.PI/2+(Math.random()-.5)*2.2,dist=90+Math.random()*120;
+    const a=p.animate([{transform:'translate(-50%,-50%) rotate(0deg) scale(.6)',opacity:1},
+      {transform:'translate('+(Math.cos(ang)*dist-6)+'px,'+(Math.sin(ang)*dist+40)+'px) rotate('+(Math.random()*540-270)+'deg) scale(1)',opacity:0}],
+      {duration:900+Math.random()*500,easing:'cubic-bezier(.2,.7,.3,1)'});
+    a.onfinish=()=>p.remove();
+  }
+}
+
+buildFlower();buildCtx();resetComposer();render();initStore();
+setInterval(()=>{const k=dayKey(new Date());if(document.activeElement!==$('when')&&!$('note').value&&!S.sel.length)$('when').value=nowHHMM();},60000);
+</script>
+</body>
+</html>
